@@ -41,7 +41,36 @@ The system is built using a **Microservices Architecture**:
 - **Database**: MySQL (Single instance with separate schemas/tables per service).
 - **Tools**: Maven, Git, Postman.
 
-## 🏃‍♂️ Getting Started
+## 🐳 Docker Setup (Recommended)
+
+Run the entire application (Backend, Frontend, and Database) with a single command.
+
+### Prerequisites
+- Docker & Docker Compose installed.
+
+### Quick Start
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/sengarharsh/ParikshaSetu_-Exam-management-system.git
+    cd ParikshaSetu_-Exam-management-system
+    ```
+
+2.  **Run with Docker Compose**
+    ```bash
+    docker-compose up --build -d
+    ```
+
+3.  **Access the Application**
+    - **Frontend**: [http://localhost](http://localhost) (runs on port 80)
+    - **Eureka Dashboard**: [http://localhost:8761](http://localhost:8761)
+    - **Database**: Port mapped to `3307` (User: `root`, Pass: `root123`)
+
+4.  **Stop the Application**
+    ```bash
+    docker-compose down
+    ```
+
+## 🛠️ Manual Installation
 
 ### Prerequisites
 - Java 17+
