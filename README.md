@@ -103,7 +103,67 @@ The MySQL container is mapped to host port **3307** to prevent conflicts with lo
 
 ---
 
-## 📜 License
+## �️ Manual Installation
+
+If you prefer to run the application without Docker, follow these steps.
+
+### Prerequisites
+- **Java 17+**
+- **Maven**
+- **Node.js & npm**
+- **MySQL Server** (Running on port `3306`)
+
+### 1. Database Setup
+1.  Ensure your local MySQL server is running.
+2.  Create the following databases:
+    ```sql
+    CREATE DATABASE parikshasetu_user;
+    CREATE DATABASE parikshasetu_course;
+    CREATE DATABASE parikshasetu_exam;
+    CREATE DATABASE parikshasetu_result;
+    CREATE DATABASE parikshasetu_notification;
+    ```
+3.  **Important**: Update the `application.properties` or `application.yml` file in **EACH** service to match your local MySQL credentials if they are different from `root/root123`.
+
+### 2. Run Backend Services
+You must start the services in the specific order below. Open a separate terminal for each service.
+
+1.  **Discovery Service**
+    ```bash
+    cd eureka-server
+    mvn spring-boot:run
+    ```
+2.  **API Gateway**
+    ```bash
+    cd api-gateway
+    mvn spring-boot:run
+    ```
+3.  **Other Services** (Order doesn't matter for these)
+    - `user-service`
+    - `course-service`
+    - `exam-service`
+    - `result-service`
+    - `notification-service`
+
+    For each, run:
+    ```bash
+    cd <service-name>
+    mvn spring-boot:run
+    ```
+
+### 3. Run Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### 4. Access the Application
+- Open [http://localhost:5173](http://localhost:5173) (Vite default port) in your browser.
+
+---
+
+## �📜 License
 This project is developed for educational purposes.
 
 ---
