@@ -20,6 +20,7 @@ function Login() {
             // But checkAuth fallback needs these
             localStorage.setItem('userId', response.data.id);
             localStorage.setItem('fullName', response.data.fullName);
+            localStorage.setItem('email', response.data.email); // Fixed: Store email
             if (response.data.role === 'STUDENT') {
                 localStorage.setItem('studentId', response.data.id);
             }

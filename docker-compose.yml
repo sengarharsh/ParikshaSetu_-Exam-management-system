@@ -1,0 +1,167 @@
+services:
+  # Database Service
+  mysql:
+    image: mysql:8.0
+    container_name: pariksha-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: parikshasetu_user
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db_setup.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - pariksha-net
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Service Discovery
+  discovery-service:
+    build: ./eureka-server
+    image: pariksha/discovery-service
+    container_name: discovery-service
+    ports:
+      - "8761:8761"
+    environment:
+      - SPRING_APPLICATION_NAME=eureka-server
+    networks:
+      - pariksha-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # API Gateway
+  api-gateway:
+    build: ./api-gateway
+    image: pariksha/api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_APPLICATION_NAME=api-gateway
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - SERVER_PORT=8080
+    networks:
+      - pariksha-net
+    depends_on:
+      - discovery-service
+
+  # Microservices
+  user-service:
+    build: ./user-service
+    image: pariksha/user-service
+    container_name: user-service
+    environment:
+      - SPRING_APPLICATION_NAME=user-service
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/parikshasetu_user?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root123
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - SERVER_PORT=8081
+    networks:
+      - pariksha-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+
+  course-service:
+    build: ./course-service
+    image: pariksha/course-service
+    container_name: course-service
+    environment:
+      - SPRING_APPLICATION_NAME=course-service
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/parikshasetu_course?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root123
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - SERVER_PORT=8086
+    networks:
+      - pariksha-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+
+  exam-service:
+    build: ./exam-service
+    image: pariksha/exam-service
+    container_name: exam-service
+    environment:
+      - SPRING_APPLICATION_NAME=exam-service
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/parikshasetu_exam?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root123
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - SERVER_PORT=8082
+    networks:
+      - pariksha-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+
+  result-service:
+    build: ./result-service
+    image: pariksha/result-service
+    container_name: result-service
+    environment:
+      - SPRING_APPLICATION_NAME=result-service
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/parikshasetu_result?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root123
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - SERVER_PORT=8084
+    networks:
+      - pariksha-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+
+  notification-service:
+    build: ./notification-service
+    image: pariksha/notification-service
+    container_name: notification-service
+    environment:
+      - SPRING_APPLICATION_NAME=notification-service
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/parikshasetu_notification?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root123
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - SERVER_PORT=8085
+    depends_on:
+      mysql:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    image: pariksha/frontend
+    container_name: parikshasetu-frontend
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    networks:
+      - pariksha-net
+    depends_on:
+      - api-gateway
+
+networks:
+  pariksha-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
