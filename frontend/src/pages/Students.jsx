@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Card from '../components/Card';
 import api from '../api';
 import toast from 'react-hot-toast';
-import { Trash, Upload, Download } from 'lucide-react';
+import { Trash, Download } from 'lucide-react';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,18 +10,41 @@ const Students = () => {
     const { user } = useAuth();
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showUploadModal, setShowUploadModal] = useState(false);
-    const [file, setFile] = useState(null);
-    const [uploading, setUploading] = useState(false);
+
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newStudent, setNewStudent] = useState({ name: '', email: '', password: 'password123' });
+    const [adding, setAdding] = useState(false);
+
+    const [courses, setCourses] = useState([]);
+    const [selectedCourseId, setSelectedCourseId] = useState('');
 
     useEffect(() => {
         fetchStudents();
+        if (user?.role === 'TEACHER') {
+            fetchCourses();
+        }
     }, []);
+
+    const fetchCourses = async () => {
+        try {
+            const res = await api.get(`/api/courses/teacher/${user.id}`);
+            setCourses(res.data);
+            if (res.data.length > 0) setSelectedCourseId(res.data[0].id);
+        } catch (err) {
+            console.error("Failed to load courses");
+        }
+    };
 
     const fetchStudents = async () => {
         try {
-            const res = await api.get('/api/users/students');
-            setStudents(res.data);
+            let res;
+            if (user?.role === 'TEACHER') {
+                res = await api.get(`/api/courses/teacher/${user.id}/students`);
+            } else {
+                res = await api.get('/api/users/students');
+            }
+            // Ensure data is array
+            setStudents(Array.isArray(res.data) ? res.data : []);
         } catch (error) {
             console.error("Failed to load students", error);
             toast.error("Failed to load students");
@@ -30,11 +53,11 @@ const Students = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (window.confirm('Are you sure you want to delete this student?')) {
+    const handleDelete = async (student) => {
+        if (window.confirm('Are you sure you want to delete this student system-wide?')) {
             try {
-                await api.delete(`/api/users/${id}`);
-                setStudents(students.filter(student => student.id !== id));
+                await api.delete(`/api/users/${student.id}`);
+                setStudents(students.filter(s => s.id !== student.id));
                 toast.success('Student deleted successfully');
             } catch (error) {
                 console.error('Failed to delete student', error);
@@ -43,27 +66,34 @@ const Students = () => {
         }
     };
 
-    const handleUpload = async (e) => {
+    const handleAddStudent = async (e) => {
         e.preventDefault();
-        if (!file) return;
-
-        const formData = new FormData();
-        formData.append('file', file);
-        setUploading(true);
-
+        setAdding(true);
         try {
-            await api.post('/api/users/students/upload', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+            // 1. Register
+            const regRes = await api.post('/api/auth/register', {
+                fullName: newStudent.name,
+                email: newStudent.email,
+                password: newStudent.password || 'password123',
+                role: 'STUDENT'
             });
-            toast.success('Students uploaded successfully');
-            setShowUploadModal(false);
-            setFile(null);
+            const newUserId = regRes.data.id;
+            toast.success("Student registered!");
+
+            // 2. Enroll (if teacher and course selected)
+            if (user?.role === 'TEACHER' && selectedCourseId) {
+                await api.post(`/api/courses/${selectedCourseId}/enroll/${newUserId}`);
+                toast.success("Student enrolled in course!");
+            }
+
+            setNewStudent({ name: '', email: '', password: 'password123' });
+            setShowAddModal(false);
             fetchStudents();
-        } catch (error) {
-            console.error('Upload failed', error);
-            toast.error('Failed to upload students');
+        } catch (err) {
+            console.error(err);
+            toast.error(err.response?.data?.message || "Failed to register student");
         } finally {
-            setUploading(false);
+            setAdding(false);
         }
     };
 
@@ -73,13 +103,15 @@ const Students = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-medium text-gray-900">Students Directory</h2>
-                <button
-                    onClick={() => setShowUploadModal(true)}
-                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium"
-                >
-                    <Upload size={16} />
-                    Upload Excel
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium"
+                    >
+                        + Add Student
+                    </button>
+                    {/* Upload Excel Removed as per request */}
+                </div>
             </div>
 
             <Card>
@@ -112,8 +144,8 @@ const Students = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <button
-                                                onClick={() => handleDelete(student.id)}
                                                 className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors duration-200"
+                                                onClick={() => handleDelete(student)}
                                             >
                                                 Delete
                                             </button>
@@ -126,39 +158,60 @@ const Students = () => {
                 </div>
             </Card>
 
-            <Modal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} title="Upload Students">
-                <form onSubmit={handleUpload} className="space-y-4">
-                    <div className="bg-blue-50 p-4 rounded-md text-sm text-blue-900">
-                        <h4 className="font-bold mb-2">Instructions:</h4>
-                        <ul className="list-disc pl-5 space-y-1">
-                            <li>Column A: Full Name</li>
-                            <li>Column B: Email</li>
-                            <li>Column C: Password (Optional, default: 123456)</li>
-                        </ul>
-                        <button
-                            type="button"
-                            onClick={() => window.open("http://localhost:8080/api/users/students/template", "_blank")}
-                            className="mt-2 text-blue-600 underline font-semibold flex items-center text-xs"
-                        >
-                            <Download size={14} className="mr-1" /> Download Template
-                        </button>
+            {/* Add Student Manual Modal */}
+            <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Register New Student">
+                <form onSubmit={handleAddStudent} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                        <input
+                            type="text" required
+                            value={newStudent.name}
+                            onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
+                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                            placeholder="John Doe"
+                        />
                     </div>
-
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                        <label className="mt-2 block text-sm font-medium text-blue-600 cursor-pointer hover:text-blue-500">
-                            <span>Select Excel File</span>
-                            <input type="file" className="hidden" accept=".xlsx, .xls" onChange={(e) => setFile(e.target.files[0])} />
-                        </label>
-                        {file && <p className="mt-2 text-sm text-gray-500">{file.name}</p>}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input
+                            type="email" required
+                            value={newStudent.email}
+                            onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
+                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                            placeholder="student@example.com"
+                        />
                     </div>
-
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Password</label>
+                        <input
+                            type="text"
+                            value={newStudent.password}
+                            onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })}
+                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                            placeholder="Default: password123"
+                        />
+                    </div>
+                    {user?.role === 'TEACHER' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Assign to Course</label>
+                            <select
+                                value={selectedCourseId}
+                                onChange={(e) => setSelectedCourseId(e.target.value)}
+                                className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                            >
+                                <option value="">Select a course...</option>
+                                {courses.map(course => (
+                                    <option key={course.id} value={course.id}>{course.title}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                     <button
                         type="submit"
-                        disabled={uploading || !file}
+                        disabled={adding}
                         className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-300"
                     >
-                        {uploading ? 'Uploading...' : 'Upload Students'}
+                        {adding ? 'Registering...' : 'Register Student'}
                     </button>
                 </form>
             </Modal>

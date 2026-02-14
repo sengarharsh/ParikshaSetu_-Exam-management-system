@@ -1,24 +1,34 @@
 import React, { useState } from 'react';
 import api from '../api';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const { login } = useAuth();
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
             const response = await api.post('/api/auth/login', { email, password });
-            localStorage.setItem('token', response.data.accessToken);
-            localStorage.setItem('role', response.data.role);
+
+            // Store additional user details that AuthContext.login might strictly set token/role for
+            // But checkAuth fallback needs these
             localStorage.setItem('userId', response.data.id);
             localStorage.setItem('fullName', response.data.fullName);
+            localStorage.setItem('email', response.data.email); // Fixed: Store email
             if (response.data.role === 'STUDENT') {
                 localStorage.setItem('studentId', response.data.id);
+            }
+
+            // Update Auth Context State
+            await login(response.data.accessToken, response.data.role);
+
+            if (response.data.role === 'STUDENT') {
                 navigate('/student');
             } else if (response.data.role === 'ADMIN') {
                 navigate('/admin');

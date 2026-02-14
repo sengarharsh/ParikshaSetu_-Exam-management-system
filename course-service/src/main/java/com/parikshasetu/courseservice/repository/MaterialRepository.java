@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface MaterialRepository extends JpaRepository<Material, Long> {
     List<Material> findByCourseId(Long courseId);
+
+    Long countByCourseIdIn(List<Long> courseIds);
 }

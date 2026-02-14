@@ -86,7 +86,7 @@ function TakeExam() {
             }
 
             // Start submission session
-            const start = await api.post(`/api/submissions/start?examId=${exam.id}&studentId=${studentId}`);
+            const start = await api.post(`/api/results/start`, { examId: exam.id, studentId: studentId });
             const submissionId = start.data.id;
 
             let score = 0;
@@ -94,7 +94,7 @@ function TakeExam() {
                 if (answers[q.id] === q.correctOption) score += q.marks;
             });
 
-            await api.post(`/api/submissions/${submissionId}/submit`, { score });
+            await api.post(`/api/results/${submissionId}/submit`, { score });
 
             if (forced) alert("Exam Auto-Submitted due to violations.");
             else alert(`Exam Submitted! Your Score: ${score}`);

@@ -170,4 +170,15 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("Failed to generate template: " + e.getMessage());
         }
     }
+
+    @Override
+    public List<User> getUsersByIds(List<Long> ids) {
+        return userRepository.findAllById(ids);
+    }
+
+    @Override
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
+    }
 }

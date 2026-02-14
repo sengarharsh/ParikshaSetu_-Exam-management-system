@@ -47,4 +47,31 @@ public class ResultController {
     public ResponseEntity<List<Result>> getResultsByExamIds(@RequestBody List<Long> examIds) {
         return ResponseEntity.ok(resultService.getResultsByExamIds(examIds));
     }
+
+    @PostMapping("/start")
+    public ResponseEntity<com.parikshasetu.resultservice.model.Submission> startExam(
+            @RequestBody Map<String, Long> body) {
+        return ResponseEntity.ok(resultService.startExam(body.get("examId"), body.get("studentId")));
+    }
+
+    @PostMapping("/{submissionId}/submit")
+    public ResponseEntity<com.parikshasetu.resultservice.model.Submission> submitExam(@PathVariable Long submissionId,
+            @RequestBody Map<String, Integer> body) {
+        return ResponseEntity.ok(resultService.submitExam(submissionId, body.get("score")));
+    }
+
+    @PostMapping("/log")
+    public ResponseEntity<Void> logViolation(@RequestBody Map<String, Object> body) {
+        resultService.logViolation(
+                Long.valueOf(body.get("submissionId").toString()),
+                Long.valueOf(body.get("studentId").toString()),
+                Long.valueOf(body.get("examId").toString()),
+                body.get("violationType").toString());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/logs/{submissionId}")
+    public ResponseEntity<List<com.parikshasetu.resultservice.model.ExamLog>> getLogs(@PathVariable Long submissionId) {
+        return ResponseEntity.ok(resultService.getLogs(submissionId));
+    }
 }

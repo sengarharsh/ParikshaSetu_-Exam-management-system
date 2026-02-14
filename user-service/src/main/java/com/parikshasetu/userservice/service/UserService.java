@@ -23,4 +23,8 @@ public interface UserService {
     void bulkRegisterStudents(org.springframework.web.multipart.MultipartFile file);
 
     java.io.ByteArrayInputStream generateStudentTemplate();
+
+    List<User> getUsersByIds(List<Long> ids);
+
+    User getUserByEmail(String email);
 }

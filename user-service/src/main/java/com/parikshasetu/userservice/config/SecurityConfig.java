@@ -33,7 +33,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/error")
+                                "/error",
+                                "/api/users/search/**", // Allow internal search
+                                "/api/users/batch" // Allow batch fetch
+                        )
                         .permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

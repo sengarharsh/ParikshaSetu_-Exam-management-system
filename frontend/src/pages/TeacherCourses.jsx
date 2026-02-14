@@ -17,6 +17,9 @@ const TeacherCourses = () => {
     const [uploading, setUploading] = useState(false);
     const [approvedEnrollments, setApprovedEnrollments] = useState([]);
     const [showStudentUploadModal, setShowStudentUploadModal] = useState(false);
+    const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+    const [newStudent, setNewStudent] = useState({ name: '', email: '' });
+    const [addingStudent, setAddingStudent] = useState(false);
     const [studentFile, setStudentFile] = useState(null);
     const [uploadingStudents, setUploadingStudents] = useState(false);
 
@@ -40,7 +43,6 @@ const TeacherCourses = () => {
     const handleCreateCourse = async (e) => {
         e.preventDefault();
         try {
-            // Generate a random code if not provided
             const courseCode = newCourse.code || Math.random().toString(36).substring(7).toUpperCase();
             const teacherName = localStorage.getItem('fullName') || 'Unknown Teacher';
             await api.post('/api/courses', { ...newCourse, code: courseCode, teacherId, teacherName });
@@ -78,7 +80,8 @@ const TeacherCourses = () => {
             setPendingEnrollments(pendingRes.data);
             setApprovedEnrollments(approvedRes.data);
         } catch (err) {
-            toast.error("Failed to load course details");
+            console.error(err);
+            // toast.error("Failed to load course details");
         }
     };
 
@@ -103,34 +106,6 @@ const TeacherCourses = () => {
         }
     };
 
-    const handleRemoveStudent = async (studentId) => {
-        if (!window.confirm("Are you sure you want to remove this student from the course?")) {
-            return;
-        }
-        // Assuming we have an endpoint or we might need to reject/delete enrollment
-        // Currently relying on backend implementation for proper removal logic
-        // But previously saw logic that might just call 'reject' or specific endpoint
-        // Let's assume there is likely no specific 'remove' endpoint exposed yet or we can use the enrollment ID?
-        // Wait, the previous code showed `enrollmentRepository.delete(enrollment)`.
-        // CourseService has `removeStudent`. But `CourseController`?
-        // Let's check CourseController again... it doesn't seem to expose `removeStudent` explicitly via DELETE /students?
-        // It has @DeleteMapping("/{id}") for course.
-        // It does NOT have a remove student endpoint.
-        // I will implement a workaround: Rejecting the enrollment essentially removes them from approved list.
-        // Or I should add a remove endpoint. But for now, let's use the 'reject' logic if I can find the enrollment ID.
-        // The list item has enrollment.id. I should use that.
-        // But the function approvedEnrollments.map gave `enrollment`. So I can use enrollment.id.
-
-        // Wait, the UI calls handleRemoveStudent(enrollment.studentId). I should change it to pass enrollment.id
-        // But looking at the list rendering: enrollment.id is available.
-        // I'll update the list to pass enrollment.id and call reject (or better, add a backend endpoint).
-        // Since I can't easily add backend in this step without checking...
-        // Let's assume reject works for removal (sets status to REJECTED).
-    };
-
-    // Correct implementation of REMOVE:
-    // CourseController DOES NOT have /courses/{id}/students/{studentId} DELETE.
-    // So I will fix the function signature to take enrollmentId and call REJECT, which effectively removes access.
     const handleRemoveEnrolledStudent = async (enrollmentId) => {
         if (!window.confirm("Remove this student from the course?")) return;
         try {
@@ -140,7 +115,7 @@ const TeacherCourses = () => {
         } catch (err) {
             toast.error("Failed to remove student");
         }
-    }
+    };
 
     const handleUploadStudents = async (e) => {
         e.preventDefault();
@@ -153,20 +128,28 @@ const TeacherCourses = () => {
 
         setUploadingStudents(true);
         try {
-            await api.post(`/api/courses/${selectedCourseId}/students/upload`, formData, {
+            const res = await api.post(`/api/courses/${selectedCourseId}/students/upload`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            toast.success("Students enrolled successfully!");
+            const { created, existing, enrolled, errors } = res.data;
+
+            if (errors && errors.length > 0) {
+                console.error("Bulk Upload Errors:", errors);
+                toast.error("Upload completed with some errors. Check console.");
+                toast(errors.slice(0, 3).join('\n'), { icon: '⚠️', duration: 6000 });
+            }
+
+            toast.success(`Success! Created: ${created}, Existing: ${existing}, Enrolled: ${enrolled}`);
             setStudentFile(null);
             setShowStudentUploadModal(false);
             loadEnrollments(selectedCourseId);
         } catch (err) {
             toast.error(err.response?.data || "Failed to upload students");
+            console.error(err);
         } finally {
             setUploadingStudents(false);
         }
     };
-
 
     const fetchMaterials = async (courseId) => {
         try {
@@ -208,6 +191,55 @@ const TeacherCourses = () => {
             toast.error("Failed to upload material");
         } finally {
             setUploading(false);
+        }
+    };
+
+    const handleAddStudent = async (e) => {
+        e.preventDefault();
+        setAddingStudent(true);
+        try {
+            let studentId = null;
+            // 1. Check if user exists
+            try {
+                const res = await api.get(`/api/users/search/email?email=${newStudent.email}`);
+                if (res.data && res.data.id) {
+                    studentId = res.data.id;
+                    toast.success("User found!");
+                }
+            } catch (err) {
+                // If 404, create user
+                if (err.response && err.response.status === 404) {
+                    try {
+                        const regRes = await api.post('/api/auth/register', {
+                            fullName: newStudent.name,
+                            email: newStudent.email,
+                            password: 'password123', // Default password
+                            role: 'STUDENT'
+                        });
+                        studentId = regRes.data.id;
+                        toast.success("New student registered!");
+                    } catch (regErr) {
+                        throw new Error("Failed to register new student");
+                    }
+                } else {
+                    throw err;
+                }
+            }
+
+            if (studentId) {
+                // 2. Enroll
+                await api.post(`/api/courses/${selectedCourseId}/enroll/${studentId}`);
+                toast.success("Student added to course!");
+                setNewStudent({ name: '', email: '' });
+                setShowAddStudentModal(false);
+                loadEnrollments(selectedCourseId);
+            }
+
+        } catch (err) {
+            console.error(err);
+            toast.error(err.message || "Failed to add student");
+        } finally {
+            setAddingStudent(false);
         }
     };
 
@@ -300,7 +332,10 @@ const TeacherCourses = () => {
                                             <li key={enrollment.id} className="py-2 flex justify-between items-center">
                                                 <div className="flex items-center">
                                                     <UserCheck className="text-gray-400 mr-2" size={16} />
-                                                    <span className="text-sm">Student ID: {enrollment.studentId}</span>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900">{enrollment.studentName || `Student ID: ${enrollment.studentId}`}</p>
+                                                        <p className="text-xs text-gray-500">{enrollment.studentEmail}</p>
+                                                    </div>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <button
@@ -326,13 +361,21 @@ const TeacherCourses = () => {
                             <div className="bg-white p-6 rounded-lg shadow">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="text-lg font-medium leading-6 text-gray-900">Enrolled Students</h3>
-                                    <button
-                                        onClick={() => setShowStudentUploadModal(true)}
-                                        className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded hover:bg-blue-100 flex items-center"
-                                    >
-                                        <Upload size={14} className="mr-1" />
-                                        Upload Excel
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setShowAddStudentModal(true)}
+                                            className="text-sm bg-green-50 text-green-600 px-3 py-1 rounded hover:bg-green-100 flex items-center border border-green-200"
+                                        >
+                                            + Add Student
+                                        </button>
+                                        <button
+                                            onClick={() => setShowStudentUploadModal(true)}
+                                            className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded hover:bg-blue-100 flex items-center border border-blue-200"
+                                        >
+                                            <Upload size={14} className="mr-1" />
+                                            Upload Excel
+                                        </button>
+                                    </div>
                                 </div>
                                 {approvedEnrollments.length === 0 ? <p className="text-gray-500 text-sm">No students enrolled.</p> : (
                                     <ul className="divide-y divide-gray-200">
@@ -340,7 +383,10 @@ const TeacherCourses = () => {
                                             <li key={enrollment.id} className="py-2 flex justify-between items-center">
                                                 <div className="flex items-center">
                                                     <UserCheck className="text-green-500 mr-2" size={16} />
-                                                    <span className="text-sm">Student ID: {enrollment.studentId}</span>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900">{enrollment.studentName || `Student ID: ${enrollment.studentId}`}</p>
+                                                        <p className="text-xs text-gray-500">{enrollment.studentEmail}</p>
+                                                    </div>
                                                 </div>
                                                 <button
                                                     onClick={() => handleRemoveEnrolledStudent(enrollment.id)}
@@ -429,7 +475,20 @@ const TeacherCourses = () => {
                         </ul>
                         <button
                             type="button"
-                            onClick={() => window.open("http://localhost:8080/api/users/students/template", "_blank")}
+                            onClick={async () => {
+                                try {
+                                    const res = await api.get('/api/courses/template/students', { responseType: 'blob' });
+                                    const url = window.URL.createObjectURL(new Blob([res.data]));
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.setAttribute('download', 'students_template.xlsx');
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    link.remove();
+                                } catch (e) {
+                                    toast.error("Failed to download template");
+                                }
+                            }}
                             className="mt-2 text-blue-600 underline font-semibold flex items-center text-xs"
                         >
                             <Download size={14} className="mr-1" /> Download Student Template
@@ -450,6 +509,39 @@ const TeacherCourses = () => {
                         className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-blue-300"
                     >
                         {uploadingStudents ? 'Processing...' : 'Upload Students'}
+                    </button>
+                </form>
+            </Modal>
+
+            {/* Add Student Modal */}
+            <Modal isOpen={showAddStudentModal} onClose={() => setShowAddStudentModal(false)} title="Add Student Manually">
+                <form onSubmit={handleAddStudent} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                        <input
+                            type="text" required
+                            value={newStudent.name}
+                            onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
+                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                            placeholder="John Doe"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input
+                            type="email" required
+                            value={newStudent.email}
+                            onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
+                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                            placeholder="student@example.com"
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={addingStudent}
+                        className="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 disabled:bg-green-300"
+                    >
+                        {addingStudent ? 'Adding...' : 'Add Student'}
                     </button>
                 </form>
             </Modal>

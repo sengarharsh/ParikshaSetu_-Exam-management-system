@@ -41,6 +41,17 @@ public class Exam {
     @JsonManagedReference
     private List<Question> questions;
 
+    @org.hibernate.annotations.CreationTimestamp
+    private LocalDateTime createdAt;
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
     // Getters and Setters
     public List<Question> getQuestions() {
         return questions;

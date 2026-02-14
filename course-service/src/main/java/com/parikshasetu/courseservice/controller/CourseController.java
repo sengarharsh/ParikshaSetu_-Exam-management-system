@@ -49,12 +49,12 @@ public class CourseController {
     }
 
     @GetMapping("/{courseId}/pending")
-    public ResponseEntity<List<CourseEnrollment>> getPending(@PathVariable Long courseId) {
+    public ResponseEntity<List<java.util.Map<String, Object>>> getPending(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getPendingEnrollments(courseId));
     }
 
     @GetMapping("/{courseId}/students")
-    public ResponseEntity<List<CourseEnrollment>> getApprovedStudents(@PathVariable Long courseId) {
+    public ResponseEntity<List<java.util.Map<String, Object>>> getApprovedStudents(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getApprovedEnrollments(courseId));
     }
 
@@ -77,13 +77,19 @@ public class CourseController {
     }
 
     @PostMapping("/{courseId}/students/upload")
-    public ResponseEntity<String> uploadStudents(@PathVariable Long courseId,
+    public ResponseEntity<java.util.Map<String, Object>> uploadStudents(@PathVariable Long courseId,
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         try {
-            courseService.bulkEnroll(courseId, file);
-            return ResponseEntity.ok("Students enrolled successfully");
+            java.util.Map<String, Object> stats = courseService.bulkEnroll(courseId, file);
+            return ResponseEntity.ok(stats);
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Failed to upload students: " + e.getMessage());
+            // In case of error, we can still return internal server error but with JSON if
+            // needed,
+            // or just let global handler handle it. For now, matching the generic error
+            // response structure somewhat?
+            // Actually, the previous catch returned ResponseEntity<String>.
+            // We should keep returning ResponseEntity<?>.
+            return ResponseEntity.internalServerError().build();
         }
     }
 
@@ -98,5 +104,20 @@ public class CourseController {
                 .contentType(org.springframework.http.MediaType
                         .parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(file);
+    }
+
+    @GetMapping("/teacher/{teacherId}/all-student-ids")
+    public ResponseEntity<List<Long>> getEnrolledStudentIds(@PathVariable Long teacherId) {
+        return ResponseEntity.ok(courseService.getEnrolledStudentIdsForTeacher(teacherId));
+    }
+
+    @GetMapping("/teacher/{teacherId}/material-count")
+    public ResponseEntity<Long> getMaterialCount(@PathVariable Long teacherId) {
+        return ResponseEntity.ok(courseService.countMaterialsByTeacher(teacherId));
+    }
+
+    @GetMapping("/teacher/{teacherId}/students")
+    public ResponseEntity<List<java.util.Map<String, Object>>> getStudentsByTeacher(@PathVariable Long teacherId) {
+        return ResponseEntity.ok(courseService.getStudentsByTeacher(teacherId));
     }
 }

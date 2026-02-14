@@ -12,32 +12,27 @@ spring:
           lower-case-service-id: true
       routes:
         - id: user-service
-          uri: http://localhost:8081
+          uri: lb://USER-SERVICE
           predicates:
             - Path=/api/auth/**, /api/users/**, /api/admin/**
 
         - id: exam-service
-          uri: http://localhost:8082
+          uri: lb://EXAM-SERVICE
           predicates:
             - Path=/api/exams/**
 
-        - id: submission-service
-          uri: http://localhost:8083
-          predicates:
-            - Path=/api/submissions/**
-
         - id: result-service
-          uri: http://localhost:8084
+          uri: lb://RESULT-SERVICE
           predicates:
             - Path=/api/results/**
 
         - id: notification-service
-          uri: http://localhost:8085
+          uri: lb://NOTIFICATION-SERVICE
           predicates:
             - Path=/api/notifications/**
 
         - id: course-service
-          uri: http://localhost:8086
+          uri: lb://COURSE-SERVICE
           predicates:
             - Path=/api/courses/**, /api/materials/**
 

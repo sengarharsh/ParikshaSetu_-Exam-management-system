@@ -9,9 +9,12 @@ import java.util.List;
 public class NotificationService {
 
     private final NotificationRepository repository;
+    private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
-    public NotificationService(NotificationRepository repository) {
+    public NotificationService(NotificationRepository repository,
+            org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate) {
         this.repository = repository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     public void createNotification(Long userId, String message) {
@@ -19,8 +22,14 @@ public class NotificationService {
         n.setUserId(userId);
         n.setMessage(message);
         repository.save(n);
-        // Also send email if needed (can keep the mock logic)
-        System.out.println("Notification created for user " + userId + ": " + message);
+
+        // Push to WebSocket
+        messagingTemplate.convertAndSendToUser(
+                String.valueOf(userId),
+                "/queue/notifications",
+                n);
+
+        System.out.println("Notification created and pushed for user " + userId + ": " + message);
     }
 
     public List<Notification> getUserNotifications(Long userId) {

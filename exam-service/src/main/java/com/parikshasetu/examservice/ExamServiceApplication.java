@@ -6,6 +6,8 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 @SpringBootApplication
 @EnableDiscoveryClient
+@org.springframework.boot.autoconfigure.domain.EntityScan(basePackages = "com.parikshasetu.examservice.model")
+@org.springframework.data.jpa.repository.config.EnableJpaRepositories(basePackages = "com.parikshasetu.examservice.repository")
 public class ExamServiceApplication {
 
     public static void main(String[] args) {

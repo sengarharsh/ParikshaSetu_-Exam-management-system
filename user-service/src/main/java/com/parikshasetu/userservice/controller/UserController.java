@@ -35,13 +35,9 @@ public class UserController {
     }
 
     @GetMapping("/profile")
-    public User getProfile() {
-        // Current user logic - for now return mock or first user if security context
-        // not ready
-        // In real app, extract from SecurityContextHolder
-        // Temporarily throwing error or returning dummy to force frontend to use ID
-        // based fetch
-        return null;
+    public org.springframework.http.ResponseEntity<User> getProfile() {
+        // Endpoint not yet implemented with security context
+        return org.springframework.http.ResponseEntity.notFound().build();
     }
 
     @org.springframework.web.bind.annotation.PostMapping("/students/upload")
@@ -66,17 +62,23 @@ public class UserController {
 
     @GetMapping("/search/email")
     public org.springframework.http.ResponseEntity<User> getUserByEmail(
-            @org.springframework.web.bind.annotation.RequestParam String email) {
-        // We need to implement this in service or just use repository here if valid
-        // Ideally service. But let's check service first.
-        // For now, I'll assume service doesn't have it and add basic logic or find it.
-        // Let's verify service first.
-        // Actually, let's just use the repo via service stream for now to be safe and
-        // quick
-        User user = userService.getAllUsers().stream()
-                .filter(u -> u.getEmail().equals(email))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return org.springframework.http.ResponseEntity.ok(user);
+            @org.springframework.web.bind.annotation.RequestParam("email") String email) {
+        try {
+            User user = userService.getUserByEmail(email);
+            return org.springframework.http.ResponseEntity.ok(user);
+        } catch (RuntimeException e) {
+            return org.springframework.http.ResponseEntity.notFound().build();
+        }
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/batch")
+    public List<User> getUsersByIds(@org.springframework.web.bind.annotation.RequestBody List<Long> ids) {
+        return userService.getUsersByIds(ids);
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    public org.springframework.http.ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        userService.deleteUser(id);
+        return org.springframework.http.ResponseEntity.noContent().build();
     }
 }

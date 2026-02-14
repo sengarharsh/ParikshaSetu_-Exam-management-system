@@ -1,27 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, LogOut, User, X } from 'lucide-react';
+import { useNotification } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
-import api from '../api';
+// ... existing imports
 
 const Navbar = () => {
     const navigate = useNavigate();
     const { logout, user } = useAuth() || {};
-    const [notifications, setNotifications] = useState([]);
+    const { notifications, unreadCount, markAsRead } = useNotification();
     const [showNotifications, setShowNotifications] = useState(false);
-    const [unreadCount, setUnreadCount] = useState(0);
     const notifRef = useRef(null);
 
     const role = localStorage.getItem('role');
-
-    useEffect(() => {
-        if (user) {
-            fetchNotifications();
-            // Poll for notifications every 60s
-            const interval = setInterval(fetchNotifications, 60000);
-            return () => clearInterval(interval);
-        }
-    }, [user]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -34,79 +25,89 @@ const Navbar = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const fetchNotifications = async () => {
-        try {
-            // Adjust endpoint as per backend. Assuming /api/notifications
-            const res = await api.get(`/api/notifications/user/${user.id}`);
-            setNotifications(res.data);
-            setUnreadCount(res.data.filter(n => !n.read).length);
-        } catch (error) {
-            console.error("Failed to fetch notifications");
-            // Mock for UI demonstration if backend empty
-            setNotifications([
-                { id: 1, message: "Welcome to ParikshaSetu!", time: "Now" }
-            ]);
-            setUnreadCount(1);
+    const handleNotificationClick = (notif) => {
+        if (!notif.read) {
+            markAsRead(notif.id);
         }
     };
 
     return (
-        <header className="h-16 bg-white shadow-sm fixed top-0 w-full z-30 flex items-center justify-between px-6 md:pl-72 transition-all duration-300">
-            <div className="text-gray-500 text-sm md:text-base font-medium flex items-center gap-2">
-                <span>Welcome back,</span>
-                <span className="font-bold text-blue-600">{role}</span>
-                <span className="text-gray-900 font-semibold">{user?.fullName || localStorage.getItem('fullName') || ''}</span>
+        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-100 fixed top-0 w-full z-30 flex items-center justify-between px-6 md:pl-80 transition-all duration-300">
+            <div className="flex flex-col">
+                <h1 className="text-lg font-bold text-slate-800">Dashboard</h1>
+                <p className="text-xs text-slate-500 font-medium">Welcome back, {user?.fullName || 'User'}</p>
             </div>
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-4 md:space-x-8">
 
                 {/* Notification Bell */}
                 <div className="relative" ref={notifRef}>
                     <button
                         onClick={() => setShowNotifications(!showNotifications)}
-                        className="text-gray-400 hover:text-blue-600 transition-colors relative"
+                        className={`p-2.5 rounded-xl transition-all duration-200 relative ${showNotifications ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:bg-gray-100 hover:text-slate-600'}`}
                     >
-                        <Bell size={20} />
+                        <Bell size={20} strokeWidth={2} />
                         {unreadCount > 0 && (
-                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
-                                {unreadCount}
-                            </span>
+                            <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
                         )}
                     </button>
 
                     {showNotifications && (
-                        <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 border border-gray-100 z-50">
-                            <div className="px-4 py-2 border-b border-gray-100 flex justify-between items-center">
-                                <span className="font-semibold text-sm text-gray-700">Notifications</span>
-                                <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                        <div className="absolute right-0 mt-4 w-96 bg-white rounded-2xl shadow-xl border border-gray-100/50 overflow-hidden z-50 ring-1 ring-black/5">
+                            <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                                <span className="font-semibold text-sm text-slate-800">Notifications</span>
+                                <button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-gray-200/50 transition-colors"><X size={16} /></button>
                             </div>
-                            <div className="max-h-64 overflow-y-auto">
+                            <div className="max-h-[24rem] overflow-y-auto">
                                 {notifications.length > 0 ? (
                                     notifications.map((notif, idx) => (
-                                        <div key={idx} className="px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 cursor-pointer">
-                                            <p className="text-sm text-gray-800">{notif.message}</p>
-                                            <p className="text-xs text-gray-400 mt-1">{notif.time || 'Just now'}</p>
+                                        <div
+                                            key={idx}
+                                            onClick={() => handleNotificationClick(notif)}
+                                            className={`px-5 py-4 hover:bg-gray-50/80 border-b border-gray-50 last:border-0 cursor-pointer transition-colors ${!notif.read ? 'bg-blue-50/40 relative' : ''}`}
+                                        >
+                                            {!notif.read && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>}
+                                            <div className="flex gap-3">
+                                                <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${!notif.read ? 'bg-blue-500' : 'bg-slate-300'}`}></div>
+                                                <div>
+                                                    <p className={`text-sm leading-relaxed ${!notif.read ? 'font-medium text-slate-900' : 'text-slate-600'}`}>{notif.message}</p>
+                                                    <p className="text-xs text-slate-400 mt-1.5 font-medium">{new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                </div>
+                                            </div>
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="px-4 py-6 text-center text-gray-500 text-sm">No new notifications</div>
+                                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                                        <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mb-3">
+                                            <Bell size={20} className="text-gray-300" />
+                                        </div>
+                                        <p className="text-sm text-gray-500">No new notifications</p>
+                                    </div>
                                 )}
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="flex items-center space-x-3 pl-6 border-l border-gray-100">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs ring-2 ring-white shadow-sm">
-                        {role ? role.charAt(0) : 'U'}
+                <div className="h-8 w-px bg-gray-200 mx-2"></div>
+
+                <div className="flex items-center gap-3 group cursor-pointer" onClick={() => navigate('/profile')}>
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md ring-4 ring-blue-50/50 group-hover:ring-blue-100 transition-all">
+                        {user?.fullName?.charAt(0) || role?.charAt(0) || 'U'}
                     </div>
-                    <button
-                        onClick={logout}
-                        className="flex items-center text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
-                    >
-                        <LogOut size={16} className="mr-1" />
-                        Logout
-                    </button>
+                    <div className="hidden md:block text-left">
+                        <p className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 transition-colors">{user?.fullName || user?.name || 'User'}</p>
+                        <p className="text-xs font-medium text-slate-500">{role}</p>
+                    </div>
                 </div>
+
+                <button
+                    onClick={logout}
+                    className="flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                    title="Logout"
+                >
+                    <LogOut size={18} />
+                    <span className="text-sm font-medium">Logout</span>
+                </button>
             </div>
         </header>
     );

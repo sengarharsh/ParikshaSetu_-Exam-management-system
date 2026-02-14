@@ -4,10 +4,10 @@ import Navbar from './Navbar';
 
 const Layout = ({ children }) => {
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-slate-900">
             <Navbar />
             <Sidebar />
-            <main className="md:ml-64 pt-20 px-6 pb-8">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden md:ml-72 pt-28 px-8 pb-12 transition-all duration-300">
                 {children}
             </main>
         </div>
